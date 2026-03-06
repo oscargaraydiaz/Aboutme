@@ -1,1 +1,33 @@
 
+1. TITLE
+
+Heavy Machinery Reporting System
+
+2. CATEGORY
+
+Web Development
+
+3. SHORT DESCRIPTION
+
+A mobile-optimized web application designed for construction companies to track daily machinery activity.
+The system allows field guards to register machine entry and exit times, upload evidence photos, and log operational data directly into a centralized database.
+
+4. PROJECT OVERVIEW
+
+This system was developed to digitize daily operational reports for heavy construction machinery. Guards or operators can register the entry time of each machine, upload photo evidence, add operational observations, and later complete the report with exit time and additional data such as fuel refills or downtime.
+The application ensures that each machine can only generate one report per day, preventing data duplication and improving operational traceability.
+All reports are stored in a centralized database and can be reviewed, edited, exported, or deleted through an administrative panel.
+The platform includes a responsive mobile interface, real-time validation, automatic calculation of working hours, and secure image uploads.
+This solution significantly improves operational monitoring, transparency, and reporting efficiency for construction equipment management.
+
+5. TECHNOLOGIES
+
+JavaScript, HTML, CSS, Supabase, PostgreSQL, REST APIs, Cloud Storage, Responsive Web Design
+
+6. KEY FEATURES
+
+• Mobile-first interface optimized for field reporting
+• Automated daily machine reporting with duplication prevention
+• Image upload and storage for operational evidence
+• Automatic calculation of machinery working hours
+• Administrative dashboard for report management and export
