@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>13 CNEFA · AR Experience</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: 'Rajdhani', sans-serif;
+  }
+
+  /* CAMERA FEED */
+  #video {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 0;
+    transform: scaleX(-1);
+  }
+
+  /* OVERLAY OSCURO SUAVE */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(2,8,24,0.55) 0%,
+      rgba(2,8,24,0.25) 40%,
+      rgba(2,8,24,0.55) 100%
+    );
+    z-index: 1;
+  }
+
+  /* CANVAS EFECTOS */
+  #fxCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100%; height: 100%;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* HUD CORNERS */
+  .hud {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .corner {
+    position: absolute;
+    width: 32px; height: 32px;
+    border-color: rgba(0,212,255,0.7);
+    border-style: solid;
+    animation: cpulse 3s ease-in-out infinite;
+  }
+  .corner.tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+  .corner.tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; }
+  .corner.br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+  @keyframes cpulse {
+    0%,100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* SCAN LINE */
+  .scan {
+    position: fixed;
+    left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(to right,
+      transparent,
+      rgba(0,212,255,0.5) 30%,
+      rgba(0,240,255,0.8) 50%,
+      rgba(0,212,255,0.5) 70%,
+      transparent
+    );
+    z-index: 4;
+    animation: scandown 9s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes scandown {
+    0% { top: -2px; opacity: 0; }
+    4% { opacity: 1; }
+    96% { opacity: 0.5; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  /* PLANETAS FLOTANTES */
+  .planet {
+    position: fixed;
+    border-radius: 50%;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .p1 {
+    width: 72px; height: 72px;
+    top: 7%; right: 7%;
+    background: radial-gradient(circle at 35% 35%, rgba(255,190,80,0.85), rgba(200,80,20,0.7), rgba(100,20,5,0.9));
+    box-shadow: 0 0 24px rgba(255,140,30,0.5), inset -10px -10px 20px rgba(0,0,0,0.5);
+    animation: fp 13s ease-in-out infinite;
+  }
+  .p1::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: -18%;
+    width: 136%; height: 18%;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,180,60,0.4);
+    transform: translateY(-50%) rotateX(75deg);
+  }
+  .p2 {
+    width: 38px; height: 38px;
+    top: 14%; left: 7%;
+    background: radial-gradient(circle at 38% 38%, rgba(140,220,255,0.8), rgba(30,90,200,0.9));
+    box-shadow: 0 0 18px rgba(60,160,255,0.4), inset -5px -5px 14px rgba(0,0,0,0.5);
+    animation: fp 9s ease-in-out infinite reverse;
+  }
+  .p3 {
+    width: 20px; height: 20px;
+    top: 24%; right: 20%;
+    background: radial-gradient(circle at 40% 40%, rgba(200,180,255,0.8), rgba(100,50,180,0.9));
+    box-shadow: 0 0 12px rgba(150,100,255,0.4), inset -4px -4px 10px rgba(0,0,0,0.5);
+    animation: fp 7s ease-in-out 1.5s infinite;
+  }
+  .p4 {
+    width: 28px; height: 28px;
+    bottom: 28%; left: 10%;
+    background: radial-gradient(circle at 40% 35%, rgba(180,255,200,0.7), rgba(20,150,80,0.9));
+    box-shadow: 0 0 14px rgba(40,200,100,0.4), inset -5px -5px 12px rgba(0,0,0,0.5);
+    animation: fp 11s ease-in-out 3s infinite;
+  }
+  @keyframes fp {
+    0%,100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-14px) rotate(5deg); }
+  }
+
+  /* NAVE ESPACIAL SVG */
+  .spaceship {
+    position: fixed;
+    z-index: 5;
+    pointer-events: none;
+    animation: shipfloat 16s ease-in-out infinite, shipmove 30s linear infinite;
+    opacity: 0.75;
+  }
+  @keyframes shipfloat {
+    0%,100% { transform: translateY(0) rotate(-8deg); }
+    50% { transform: translateY(-12px) rotate(-4deg); }
+  }
+  @keyframes shipmove {
+    0% { left: -10%; top: 55%; }
+    40% { left: 90%; top: 45%; }
+    40.1% { left: 100%; }
+    40.2% { left: -10%; top: 30%; }
+    80% { left: 90%; top: 38%; }
+    80.1% { left: 100%; }
+    80.2% { left: -10%; top: 55%; }
+    100% { left: 90%; top: 55%; }
+  }
+
+  /* ASTRONAUTA */
+  .astronaut {
+    position: fixed;
+    bottom: 12%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    pointer-events: none;
+    animation: astrofloat 5s ease-in-out infinite;
+  }
+  @keyframes astrofloat {
+    0%,100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-12px); }
+  }
+
+  /* CONTENIDO PRINCIPAL */
+  .main {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 52px 20px 0;
+    text-align: center;
+  }
+
+  .edition-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    animation: riseIn 1s ease-out 0.3s both;
+  }
+  .num13 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(88px, 21vw, 150px);
+    font-weight: 900;
+    color: transparent;
+    -webkit-text-stroke: 2px rgba(0,212,255,0.85);
+    line-height: 1;
+    letter-spacing: -5px;
+    text-shadow: 0 0 50px rgba(0,212,255,0.35);
+    animation: npulse 4s ease-in-out infinite;
+  }
+  @keyframes npulse {
+    0%,100% { -webkit-text-stroke-color: rgba(0,212,255,0.85); }
+    50% { -webkit-text-stroke-color: rgba(0,240,255,1); }
+  }
+  .vsep {
+    width: 2px;
+    height: clamp(65px, 15vw, 110px);
+    background: linear-gradient(to bottom, transparent, rgba(0,212,255,0.9) 25%, rgba(0,212,255,0.9) 75%, transparent);
+    margin: 0 14px;
+    flex-shrink: 0;
+  }
+  .titblock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+  }
+  .tlab {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(7px, 1.9vw, 10px);
+    letter-spacing: 0.28em;
+    color: rgba(180,220,255,0.65);
+    text-transform: uppercase;
+    line-height: 1;
+    animation: riseIn 1s ease-out 0.5s both;
+  }
+  .t1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(18px, 5vw, 34px);
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    animation: riseIn 1s ease-out 0.55s both;
+  }
+  .t1 span { color: #00d4ff; }
+  .t2 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(18px, 5vw, 34px);
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    animation: riseIn 1s ease-out 0.6s both;
+  }
+  .t3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(16px, 4.5vw, 30px);
+    font-weight: 600;
+    color: rgba(180,220,255,0.85);
+    line-height: 1;
+    animation: riseIn 1s ease-out 0.65s both;
+  }
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .divider {
+    width: 70%;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(0,212,255,0.4), transparent);
+    margin: 10px 0 8px;
+    animation: riseIn 1s ease-out 0.7s both;
+  }
+
+  .slogan {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(9px, 2.2vw, 13px);
+    color: rgba(200,230,255,0.7);
+    letter-spacing: 0.12em;
+    animation: riseIn 1s ease-out 0.75s both;
+  }
+
+  .infochips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+    animation: riseIn 1s ease-out 0.8s both;
+  }
+  .chip {
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: clamp(8px, 2vw, 11px);
+    color: rgba(200,235,255,0.85);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+  }
+
+  /* FECHAS - parte inferior */
+  .datebar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 8;
+    padding: 0 16px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .dates-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    width: 100%;
+    max-width: 400px;
+    animation: riseIn 1s ease-out 1s both;
+  }
+  .dcard {
+    background: rgba(2,8,24,0.65);
+    border: 1px solid rgba(0,212,255,0.25);
+    border-radius: 8px;
+    padding: 6px 10px;
+    text-align: center;
+  }
+  .dlabel {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(7px, 1.8vw, 10px);
+    color: rgba(150,200,255,0.65);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
+  }
+  .dval {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(9px, 2.2vw, 12px);
+    color: #00d4ff;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+
+  .cta {
+    display: inline-block;
+    background: rgba(0,212,255,0.15);
+    border: 1.5px solid rgba(0,212,255,0.6);
+    border-radius: 24px;
+    padding: 7px 28px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(9px, 2.5vw, 13px);
+    color: #00d4ff;
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    animation: riseIn 1s ease-out 1.1s both, ctapulse 3s ease-in-out 2s infinite;
+  }
+  @keyframes ctapulse {
+    0%,100% { border-color: rgba(0,212,255,0.6); background: rgba(0,212,255,0.15); }
+    50% { border-color: rgba(0,240,255,1); background: rgba(0,212,255,0.28); }
+  }
+
+  /* CIENTÍFICOS HOLOGRÁFICOS LATERALES */
+  .scientist {
+    position: fixed;
+    bottom: 22%;
+    z-index: 7;
+    pointer-events: none;
+    animation: scifloat var(--sd,9s) ease-in-out infinite var(--sdelay,0s);
+    opacity: 0.6;
+  }
+  .sci-l { left: 2%; }
+  .sci-r { right: 2%; }
+  @keyframes scifloat {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  /* PARTÍCULAS */
+  .particle {
+    position: fixed;
+    border-radius: 50%;
+    z-index: 5;
+    pointer-events: none;
+    animation: pfloat var(--pd,7s) ease-in-out infinite var(--pdelay,0s);
+  }
+  @keyframes pfloat {
+    0% { opacity: 0; transform: translateY(0) translateX(0) scale(1); }
+    8% { opacity: 1; }
+    90% { opacity: 0.5; }
+    100% { opacity: 0; transform: translateY(-500px) translateX(var(--pdx,30px)) scale(0.2); }
+  }
+
+  /* PANTALLA INICIO */
+  #startScreen {
+    position: fixed;
+    inset: 0;
+    background: rgba(2,8,24,0.95);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    text-align: center;
+    padding: 30px;
+  }
+  #startScreen h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(18px, 5vw, 28px);
+    color: #00d4ff;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 30px rgba(0,212,255,0.5);
+  }
+  #startScreen p {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: clamp(13px, 3.5vw, 18px);
+    color: rgba(200,230,255,0.8);
+    max-width: 300px;
+    line-height: 1.5;
+  }
+  #startBtn {
+    background: rgba(0,212,255,0.15);
+    border: 2px solid rgba(0,212,255,0.8);
+    border-radius: 30px;
+    padding: 14px 40px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(12px, 3vw, 16px);
+    color: #00d4ff;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    animation: ctapulse 3s ease-in-out infinite;
+  }
+  #noCamera {
+    display: none;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    color: rgba(255,150,150,0.8);
+    max-width: 280px;
+  }
+</style>
+</head>
+<body>
+
+<!-- PANTALLA DE INICIO -->
+<div id="startScreen">
+  <h2>13 CNEFA · AR</h2>
+  <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+    <circle cx="40" cy="40" r="36" stroke="rgba(0,212,255,0.4)" stroke-width="1.5"/>
+    <circle cx="40" cy="40" r="24" stroke="rgba(0,212,255,0.6)" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <circle cx="40" cy="40" r="8" fill="rgba(0,212,255,0.3)" stroke="rgba(0,212,255,0.9)" stroke-width="1.5"/>
+    <line x1="40" y1="4" x2="40" y2="76" stroke="rgba(0,212,255,0.2)" stroke-width="0.8"/>
+    <line x1="4" y1="40" x2="76" y2="40" stroke="rgba(0,212,255,0.2)" stroke-width="0.8"/>
+  </svg>
+  <p>Experiencia de Realidad Aumentada<br><strong style="color:#00d4ff;">13 CNEFA 2026</strong><br>Congreso Nacional de Enseñanza de la Física y la Astronomía</p>
+  <button id="startBtn">▶ ACTIVAR CÁMARA</button>
+  <p id="noCamera">No se pudo acceder a la cámara. La experiencia se mostrará con fondo espacial.</p>
+</div>
+
+<!-- VIDEO CÁMARA -->
+<video id="video" autoplay playsinline muted></video>
+<div id="overlay"></div>
+
+<!-- CANVAS EFECTOS (estrellas + grid) -->
+<canvas id="fxCanvas"></canvas>
+
+<!-- HUD -->
+<div class="hud">
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+</div>
+<div class="scan"></div>
+
+<!-- PLANETAS -->
+<div class="planet p1"></div>
+<div class="planet p2"></div>
+<div class="planet p3"></div>
+<div class="planet p4"></div>
+
+<!-- NAVE ESPACIAL -->
+<div class="spaceship">
+  <svg width="70" height="32" viewBox="0 0 70 32" fill="none">
+    <defs>
+      <filter id="glowship">
+        <feGaussianBlur stdDeviation="1.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <path d="M65 16 L50 10 L20 10 L5 16 L20 22 L50 22 Z" fill="rgba(0,212,255,0.2)" stroke="rgba(0,212,255,0.8)" stroke-width="1" filter="url(#glowship)"/>
+    <path d="M20 10 L30 4 L40 4 L50 10" fill="rgba(0,212,255,0.15)" stroke="rgba(0,212,255,0.6)" stroke-width="0.8"/>
+    <circle cx="35" cy="16" r="5" fill="rgba(0,240,255,0.25)" stroke="rgba(0,240,255,0.9)" stroke-width="1"/>
+    <path d="M5 16 L1 14 L1 18 Z" fill="rgba(255,120,30,0.9)"/>
+    <line x1="5" y1="16" x2="1" y2="16" stroke="rgba(255,180,50,0.7)" stroke-width="1.5"/>
+    <ellipse cx="20" cy="16" rx="1.5" ry="1.5" fill="rgba(0,240,255,0.8)"/>
+    <ellipse cx="50" cy="16" rx="1.5" ry="1.5" fill="rgba(0,240,255,0.8)"/>
+  </svg>
+</div>
+
+<!-- ASTRONAUTA -->
+<div class="astronaut">
+  <svg width="70" height="140" viewBox="0 0 70 140" fill="none">
+    <defs>
+      <radialGradient id="helmetGrad" cx="40%" cy="35%" r="60%">
+        <stop offset="0%" stop-color="rgba(200,230,255,0.9)"/>
+        <stop offset="60%" stop-color="rgba(150,200,255,0.6)"/>
+        <stop offset="100%" stop-color="rgba(60,120,200,0.4)"/>
+      </radialGradient>
+      <radialGradient id="suitGrad" cx="35%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="rgba(240,248,255,0.9)"/>
+        <stop offset="100%" stop-color="rgba(180,210,240,0.7)"/>
+      </radialGradient>
+      <filter id="glowastro">
+        <feGaussianBlur stdDeviation="2" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+
+    <!-- Antena -->
+    <line x1="35" y1="6" x2="35" y2="18" stroke="rgba(180,220,255,0.9)" stroke-width="1.5"/>
+    <circle cx="35" cy="5" r="2.5" fill="rgba(0,212,255,0.9)" filter="url(#glowastro)"/>
+
+    <!-- Casco -->
+    <ellipse cx="35" cy="24" rx="16" ry="17" fill="rgba(220,235,255,0.85)" stroke="rgba(180,210,255,0.8)" stroke-width="1.5"/>
+    <!-- Visor -->
+    <ellipse cx="35" cy="24" rx="10" ry="10" fill="url(#helmetGrad)" stroke="rgba(100,180,255,0.6)" stroke-width="1"/>
+    <!-- Reflejo visor -->
+    <ellipse cx="31" cy="20" rx="3" ry="2" fill="rgba(255,255,255,0.4)" transform="rotate(-20 31 20)"/>
+    <!-- Niño dentro del visor - cara simple -->
+    <circle cx="34" cy="24" r="6" fill="rgba(255,200,150,0.85)"/>
+    <ellipse cx="31.5" cy="23" rx="1.2" ry="1.5" fill="rgba(60,40,20,0.8)"/>
+    <ellipse cx="36.5" cy="23" rx="1.2" ry="1.5" fill="rgba(60,40,20,0.8)"/>
+    <path d="M31 27 Q34 29 37 27" stroke="rgba(60,40,20,0.7)" stroke-width="0.8" fill="none"/>
+
+    <!-- Traje - torso -->
+    <rect x="19" y="39" width="32" height="34" rx="6" fill="url(#suitGrad)" stroke="rgba(180,210,240,0.7)" stroke-width="1.2"/>
+    <!-- Mochila de oxígeno -->
+    <rect x="26" y="42" width="18" height="12" rx="3" fill="rgba(100,160,220,0.5)" stroke="rgba(140,190,240,0.6)" stroke-width="0.8"/>
+    <!-- Detalles traje -->
+    <circle cx="35" cy="60" r="4" fill="rgba(100,160,220,0.4)" stroke="rgba(0,212,255,0.7)" stroke-width="0.8"/>
+    <line x1="22" y1="50" x2="22" y2="68" stroke="rgba(150,200,240,0.5)" stroke-width="0.6"/>
+    <line x1="48" y1="50" x2="48" y2="68" stroke="rgba(150,200,240,0.5)" stroke-width="0.6"/>
+
+    <!-- Brazo izquierdo -->
+    <path d="M19 42 Q7 52 9 66" stroke="rgba(220,235,255,0.8)" stroke-width="9" stroke-linecap="round" fill="none"/>
+    <path d="M19 42 Q7 52 9 66" stroke="rgba(150,200,240,0.4)" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <!-- Guante izq -->
+    <ellipse cx="9" cy="68" rx="6" ry="4.5" fill="rgba(220,235,255,0.8)" stroke="rgba(150,200,240,0.6)" stroke-width="0.8"/>
+
+    <!-- Brazo derecho -->
+    <path d="M51 42 Q63 52 61 66" stroke="rgba(220,235,255,0.8)" stroke-width="9" stroke-linecap="round" fill="none"/>
+    <path d="M51 42 Q63 52 61 66" stroke="rgba(150,200,240,0.4)" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <!-- Guante der -->
+    <ellipse cx="61" cy="68" rx="6" ry="4.5" fill="rgba(220,235,255,0.8)" stroke="rgba(150,200,240,0.6)" stroke-width="0.8"/>
+
+    <!-- Pierna izq -->
+    <path d="M26 73 L23 106" stroke="rgba(220,235,255,0.85)" stroke-width="10" stroke-linecap="round" fill="none"/>
+    <path d="M26 73 L23 106" stroke="rgba(150,200,240,0.35)" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <!-- Bota izq -->
+    <ellipse cx="21" cy="109" rx="9" ry="5" fill="rgba(180,210,240,0.85)" stroke="rgba(140,190,230,0.7)" stroke-width="1"/>
+
+    <!-- Pierna der -->
+    <path d="M44 73 L47 106" stroke="rgba(220,235,255,0.85)" stroke-width="10" stroke-linecap="round" fill="none"/>
+    <path d="M44 73 L47 106" stroke="rgba(150,200,240,0.35)" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <!-- Bota der -->
+    <ellipse cx="49" cy="109" rx="9" ry="5" fill="rgba(180,210,240,0.85)" stroke="rgba(140,190,230,0.7)" stroke-width="1"/>
+
+    <!-- Efecto holograma (líneas de escaneo) -->
+    <rect x="5" y="5" width="60" height="135" fill="none" stroke="rgba(0,212,255,0.08)" stroke-width="1"
+      style="stroke-dasharray: 0 3; animation: none;"/>
+
+    <!-- Partícula flotante -->
+    <circle cx="58" cy="30" r="2" fill="rgba(0,212,255,0.8)" filter="url(#glowastro)">
+      <animate attributeName="cy" values="30;20;30" dur="3s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.8;0.2;0.8" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="12" cy="45" r="1.5" fill="rgba(255,200,50,0.8)">
+      <animate attributeName="cy" values="45;35;45" dur="4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.8;0.1;0.8" dur="4s" repeatCount="indefinite"/>
+    </circle>
+  </svg>
+</div>
+
+<!-- CIENTÍFICOS LATERALES HOLOGRÁFICOS -->
+<div class="scientist sci-l" style="--sd:11s;--sdelay:0s">
+  <svg width="44" height="110" viewBox="0 0 44 110" fill="none">
+    <ellipse cx="22" cy="12" rx="9" ry="10" fill="rgba(0,212,255,0.25)" stroke="rgba(0,212,255,0.7)" stroke-width="0.8"/>
+    <rect x="12" y="6" width="3" height="12" rx="1.5" fill="rgba(0,212,255,0.5)"/>
+    <rect x="29" y="6" width="3" height="12" rx="1.5" fill="rgba(0,212,255,0.5)"/>
+    <rect x="19" y="21" width="6" height="5" fill="rgba(0,212,255,0.4)"/>
+    <path d="M11 26 L7 65 L37 65 L33 26 Z" fill="rgba(0,212,255,0.15)" stroke="rgba(0,212,255,0.6)" stroke-width="0.8"/>
+    <path d="M11 30 Q2 44 4 58" stroke="rgba(0,212,255,0.7)" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <path d="M33 30 Q42 44 40 58" stroke="rgba(0,212,255,0.7)" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <rect x="15" y="64" width="5" height="26" rx="2" fill="rgba(0,212,255,0.4)"/>
+    <rect x="24" y="64" width="5" height="26" rx="2" fill="rgba(0,212,255,0.4)"/>
+    <ellipse cx="17.5" cy="93" rx="6" ry="2.5" fill="rgba(0,212,255,0.3)"/>
+    <ellipse cx="26.5" cy="93" rx="6" ry="2.5" fill="rgba(0,212,255,0.3)"/>
+    <line x1="2" y1="20" x2="42" y2="20" stroke="rgba(0,212,255,0.15)" stroke-width="0.5"/>
+    <line x1="2" y1="36" x2="42" y2="36" stroke="rgba(0,212,255,0.1)" stroke-width="0.5"/>
+    <line x1="2" y1="52" x2="42" y2="52" stroke="rgba(0,212,255,0.1)" stroke-width="0.5"/>
+    <line x1="2" y1="68" x2="42" y2="68" stroke="rgba(0,212,255,0.1)" stroke-width="0.5"/>
+  </svg>
+</div>
+<div class="scientist sci-r" style="--sd:14s;--sdelay:2s">
+  <svg width="44" height="110" viewBox="0 0 44 110" fill="none">
+    <ellipse cx="22" cy="13" rx="10" ry="11" fill="rgba(80,150,255,0.2)" stroke="rgba(80,150,255,0.7)" stroke-width="0.8"/>
+    <ellipse cx="22" cy="7" rx="10" ry="4" fill="rgba(80,150,255,0.5)"/>
+    <rect x="19" y="23" width="6" height="5" fill="rgba(80,150,255,0.4)"/>
+    <path d="M11 28 L7 65 L37 65 L33 28 Z" fill="rgba(80,150,255,0.1)" stroke="rgba(80,150,255,0.6)" stroke-width="0.8"/>
+    <path d="M11 32 Q2 46 4 60" stroke="rgba(80,150,255,0.7)" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <path d="M33 32 Q42 46 40 60" stroke="rgba(80,150,255,0.7)" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <rect x="14" y="42" width="10" height="7" rx="1" fill="rgba(80,150,255,0.4)" stroke="rgba(180,220,255,0.4)" stroke-width="0.5"/>
+    <rect x="15" y="64" width="5" height="26" rx="2" fill="rgba(80,150,255,0.4)"/>
+    <rect x="24" y="64" width="5" height="26" rx="2" fill="rgba(80,150,255,0.4)"/>
+    <ellipse cx="17.5" cy="93" rx="6" ry="2.5" fill="rgba(80,150,255,0.3)"/>
+    <ellipse cx="26.5" cy="93" rx="6" ry="2.5" fill="rgba(80,150,255,0.3)"/>
+    <line x1="2" y1="22" x2="42" y2="22" stroke="rgba(80,150,255,0.12)" stroke-width="0.5"/>
+    <line x1="2" y1="40" x2="42" y2="40" stroke="rgba(80,150,255,0.1)" stroke-width="0.5"/>
+    <line x1="2" y1="58" x2="42" y2="58" stroke="rgba(80,150,255,0.1)" stroke-width="0.5"/>
+    <line x1="2" y1="76" x2="42" y2="76" stroke="rgba(80,150,255,0.1)" stroke-width="0.5"/>
+  </svg>
+</div>
+
+<!-- CONTENIDO PRINCIPAL -->
+<div class="main">
+  <div class="edition-row">
+    <div class="num13">13</div>
+    <div class="vsep"></div>
+    <div class="titblock">
+      <div class="tlab">Congreso Nacional de</div>
+      <div class="t1"><span>Enseñanza</span> de la</div>
+      <div class="t2">Física</div>
+      <div class="t3">y la Astronomía</div>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="slogan">✦ Innovar para enseñar · Enseñar para transformar ✦</div>
+  <div class="infochips">
+    <div class="chip">📅 7, 8 y 9 Oct · 2026</div>
+    <div class="chip">🏛 Univ. Tecnológica de Pereira</div>
+    <div class="chip">🌐 www.13cnefa.com</div>
+  </div>
+</div>
+
+<!-- FECHAS IMPORTANTES -->
+<div class="datebar">
+  <div class="dates-row">
+    <div class="dcard">
+      <div class="dlabel">Límite propuestas</div>
+      <div class="dval">15 ABR 2026</div>
+    </div>
+    <div class="dcard">
+      <div class="dlabel">Prop. aprobadas</div>
+      <div class="dval">11 MAY 2026</div>
+    </div>
+    <div class="dcard">
+      <div class="dlabel">Envío artículos</div>
+      <div class="dval">9 JUN 2026</div>
+    </div>
+    <div class="dcard">
+      <div class="dlabel">Art. aprobados</div>
+      <div class="dval">22 JUN 2026</div>
+    </div>
+  </div>
+  <a class="cta" href="https://www.13cnefa.com" target="_blank">▶ PARTICIPA AHORA</a>
+</div>
+
+<script>
+(function(){
+  const startScreen = document.getElementById('startScreen');
+  const startBtn = document.getElementById('startBtn');
+  const video = document.getElementById('video');
+  const noCamera = document.getElementById('noCamera');
+  const canvas = document.getElementById('fxCanvas');
+  const ctx = canvas.getContext('2d');
+
+  let W, H, started = false;
+  const stars = [];
+  const meteors = [];
+  let gridOff = 0;
+
+  function resize(){
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W;
+    canvas.height = H;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Generar estrellas
+  for(let i = 0; i < 220; i++){
+    stars.push({
+      x: Math.random(), y: Math.random(),
+      r: Math.random()*1.5+0.2,
+      a: Math.random(),
+      da: (Math.random()-0.5)*0.005,
+      c: Math.random()>0.7 ? '#a8d8ff' : '#ffffff'
+    });
+  }
+
+  // Meteoros
+  function spawnMeteor(){
+    meteors.push({
+      x: 0.15 + Math.random()*0.65,
+      y: Math.random()*0.35,
+      len: 50 + Math.random()*90,
+      speed: 0.003 + Math.random()*0.003,
+      angle: 18 + Math.random()*22,
+      progress: 0,
+      maxProgress: 1,
+      opacity: 0
+    });
+  }
+  for(let i=0;i<4;i++) setTimeout(()=>spawnMeteor(), i*3500+Math.random()*2000);
+  setInterval(spawnMeteor, 4000+Math.random()*3000);
+
+  function drawFX(cameraActive){
+    ctx.clearRect(0,0,W,H);
+
+    if(!cameraActive){
+      // Fondo espacial cuando no hay cámara
+      const bg = ctx.createLinearGradient(0,0,0,H);
+      bg.addColorStop(0,'#020818');
+      bg.addColorStop(1,'#020d1a');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0,0,W,H);
+
+      // Nebulosa
+      const neb = ctx.createRadialGradient(W*0.15,H*0.5,0, W*0.15,H*0.5, W*0.4);
+      neb.addColorStop(0,'rgba(0,150,220,0.09)');
+      neb.addColorStop(1,'transparent');
+      ctx.fillStyle = neb;
+      ctx.fillRect(0,0,W,H);
+
+      const neb2 = ctx.createRadialGradient(W*0.85,H*0.4,0, W*0.85,H*0.4, W*0.35);
+      neb2.addColorStop(0,'rgba(80,30,180,0.07)');
+      neb2.addColorStop(1,'transparent');
+      ctx.fillStyle = neb2;
+      ctx.fillRect(0,0,W,H);
+    }
+
+    // Estrellas
+    stars.forEach(s=>{
+      s.a += s.da;
+      if(s.a < 0.08) s.da = Math.abs(s.da);
+      if(s.a > 1)    s.da = -Math.abs(s.da);
+      ctx.beginPath();
+      ctx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2);
+      ctx.fillStyle = s.c;
+      ctx.globalAlpha = cameraActive ? s.a * 0.6 : s.a;
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Meteoros
+    for(let i = meteors.length-1; i>=0; i--){
+      const m = meteors[i];
+      m.progress += m.speed;
+      const rad = m.angle * Math.PI/180;
+      const dx = Math.cos(rad)*m.len;
+      const dy = Math.sin(rad)*m.len;
+      const x0 = m.x*W + dx*m.progress;
+      const y0 = m.y*H + dy*m.progress;
+      const opacity = m.progress < 0.1 ? m.progress*10 : m.progress > 0.85 ? (1-m.progress)*6.67 : 1;
+      const grad = ctx.createLinearGradient(x0, y0, x0-dx*0.18, y0-dy*0.18);
+      grad.addColorStop(0, `rgba(255,255,255,${opacity*0.95})`);
+      grad.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x0-dx*0.18, y0-dy*0.18);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = opacity * (cameraActive ? 0.7 : 1);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      if(m.progress >= 1) meteors.splice(i,1);
+    }
+
+    // Grid perspectiva (zona inferior, más sutil si hay cámara)
+    if(!cameraActive){
+      const gh = H*0.42;
+      const gy = H - gh;
+      gridOff = (gridOff + 0.3) % (gh/14);
+      const cols=16, rows=14;
+      const cw = W/cols, ch = gh/rows;
+      const vpx = W/2;
+
+      for(let r=-1;r<=rows+1;r++){
+        const y = gy + r*ch + gridOff;
+        const t = (y-gy)/gh;
+        if(t<0||t>1) continue;
+        ctx.beginPath();
+        ctx.moveTo(0,y);
+        ctx.lineTo(W,y);
+        ctx.strokeStyle = `rgba(0,180,255,${t*0.4})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+      for(let c=0;c<=cols;c++){
+        const x = c*cw;
+        const t2 = 1 - Math.abs((x/W)-0.5)*2;
+        ctx.beginPath();
+        ctx.moveTo(vpx+(x-vpx)*0.08, gy);
+        ctx.lineTo(x, H);
+        ctx.strokeStyle = `rgba(0,180,255,${t2*0.3})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+      const fade = ctx.createLinearGradient(0,gy,0,gy+gh*0.4);
+      fade.addColorStop(0,'rgba(2,8,24,0.95)');
+      fade.addColorStop(1,'rgba(2,8,24,0)');
+      ctx.fillStyle = fade;
+      ctx.fillRect(0,gy,W,gh*0.4);
+    }
+  }
+
+  let cameraActive = false;
+  let rafId;
+  function loop(){
+    drawFX(cameraActive);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // Partículas
+  const colors = ['#00d4ff','#00aaff','#60eeff','#ffcc44','#80ffcc','#ff80cc'];
+  for(let i=0;i<20;i++){
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const sz = Math.random()*3+1;
+    const col = colors[Math.floor(Math.random()*colors.length)];
+    p.style.cssText = `
+      width:${sz}px;height:${sz}px;
+      background:${col};
+      box-shadow:0 0 ${sz*3}px ${col};
+      left:${Math.random()*95}%;
+      bottom:${10+Math.random()*30}%;
+      --pdx:${(Math.random()-0.5)*100}px;
+      --pd:${5+Math.random()*9}s;
+      --pdelay:${Math.random()*8}s;
+    `;
+    document.body.appendChild(p);
+  }
+
+  // Botón inicio
+  startBtn.addEventListener('click', async ()=>{
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      cameraActive = true;
+      video.style.display = 'block';
+    } catch(e) {
+      console.warn('Cámara no disponible:', e);
+      noCamera.style.display = 'block';
+      video.style.display = 'none';
+      cameraActive = false;
+    }
+    startScreen.style.opacity = '1';
+    startScreen.style.transition = 'opacity 0.8s';
+    setTimeout(()=>{ startScreen.style.opacity = '0'; }, 200);
+    setTimeout(()=>{ startScreen.style.display = 'none'; }, 1000);
+    if(!started){ started = true; loop(); }
+  });
+
+})();
+</script>
+</body>
+</html>
